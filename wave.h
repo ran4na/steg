@@ -159,19 +159,21 @@ int writeToWav32(WAV_FILE* wav, uint32_t offset, int32_t data)
 
 int writeSample(WAV_FILE* wav, uint32_t sampleCount, double sample) {
     uint32_t trueOffset = sampleCount * (wav->FMT.BitsPerSample / 8);
-
+    uint8_t raster8;
+    int16_t raster16;
+    int32_t raster32;
     switch(wav->FMT.BitsPerSample) {
         case 8:
             // fit sample within range 0 - 255
-            uint8_t raster8 = (uint8_t)(clamp(sample, -128.0, 128.0) + 128.0);
+            raster8 = (uint8_t)(clamp(sample, -128.0, 128.0) + 128.0);
             writeToWav8(wav, trueOffset, raster8);
             break;
         case 16:
-            int16_t raster16 = (int16_t)(clamp(sample, -32767.0, 32767.0));
+            raster16 = (int16_t)(clamp(sample, -32767.0, 32767.0));
             writeToWav16(wav, trueOffset, raster16);
             break;
         case 32:
-            int32_t raster32 = (int32_t)(clamp(sample, -2147483647, 2147483647));
+            raster32 = (int32_t)(clamp(sample, -2147483647, 2147483647));
             writeToWav32(wav, trueOffset, raster32);
             break;
         default:
@@ -182,21 +184,23 @@ int writeSample(WAV_FILE* wav, uint32_t sampleCount, double sample) {
 
 int writeSampleEncoded(WAV_FILE* wav, uint32_t sampleCount, double sample, int bitValue) {
     uint32_t trueOffset = sampleCount * (wav->FMT.BitsPerSample / 8);
-
+    uint8_t raster8;
+    int16_t raster16;
+    int32_t raster32;
     switch(wav->FMT.BitsPerSample) {
         case 8:
             // fit sample within range 0 - 255
-            uint8_t raster8 = (uint8_t)(clamp(sample, -128.0, 128.0) + 128.0);
+            raster8 = (uint8_t)(clamp(sample, -128.0, 128.0) + 128.0);
             raster8 = raster8 & 0xFE | bitValue;
             writeToWav8(wav, trueOffset, raster8);
             break;
         case 16:
-            int16_t raster16 = (int16_t)(clamp(sample, -32767.0, 32767.0));
+            raster16 = (int16_t)(clamp(sample, -32767.0, 32767.0));
             raster16 = raster16 & 0xFE | bitValue;
             writeToWav16(wav, trueOffset, raster16);
             break;
         case 32:
-            int32_t raster32 = (int32_t)(clamp(sample, -2147483647, 2147483647));
+            raster32 = (int32_t)(clamp(sample, -2147483647, 2147483647));
             raster32 = raster32 & 0xFE | bitValue;
             writeToWav32(wav, trueOffset, raster32);
             break;

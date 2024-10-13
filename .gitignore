@@ -10,3 +10,8 @@ compile_commands.json
 CTestTestfile.cmake
 _deps
 cmake_build_debug/
+build/
+.idea/
+FileContentIndex/
+v17/
+.vs
