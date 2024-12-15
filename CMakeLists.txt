@@ -15,4 +15,4 @@ elseif(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-long-long -pedantic")
 endif()
 
-add_executable(steg main.c wave.h getopt.c mathutilities.h getopt.h)
+add_executable(steg main.c wave.h getopt.c mathutilities.h getopt.h "bmp.h" "wave.c" "bmp.c" "mathutilities.c")

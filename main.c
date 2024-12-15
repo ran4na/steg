@@ -5,134 +5,149 @@
 #include "getopt.h"
 #include <time.h>
 #include "mathutilities.h"
+#include "bmp.h"
+
+enum FileTypes {
+    TYPE_WAV,
+    TYPE_BMP
+};
 
 #define PI 3.14159265358979323846
+#define MAX_FILENAME_LENGTH 256
+
 const uint32_t numSeconds = 10;
 const uint16_t numChannels = 1;
 const uint32_t sampleRate = 44100;
 const uint32_t bitsPerSample = 16;
 
+/*
+ * TODO:
+ * - add support for custom files to load and edit a WAV (i think?)
+ * - BMP or PNG images
+ * - embed images in other images
+ * - maybe try diff algorithms
+ */
+void printUsage() {
+    printf("Usage: ./steg.exe [-h] -t FILETYPE [-d] [-e TEXT] -f FILENAME\n");
+    printf("\n\t-h\t\tShow usage\n");
+    printf("\t-t FILETYPE\tFile type (wav, bmp)\n");
+    printf("\t-d\t\tDecode mode\n");
+    printf("\t-e TEXT\t\tEncode TEXT to file\n");
+    printf("\t-f FILENAME\tinput/output filename\n");
+}
+
 int main(int argc, char* argv[]) {
 
-    char* text = NULL;
-    char* path = NULL;
+    char* inpath = NULL;
+    char* outpath = NULL;
     int opt;
     int mode = 0; // 0: encode, 1: decode
+    int filetype = -1;
     // get clargs
-
-    while((opt = getopt(argc, argv, "d:e:")) != -1) {
+    while(optind < argc) {
+        if ((opt = getopt(argc, argv, "ht:d:e:f:")) != -1);
         switch(opt) {
+            case 'h':
+                printUsage();
+                return 0;
+                break;
+            case 't':
+            // file type
+                if (strcmp(optarg, "bmp") == 0) {
+                    filetype = TYPE_BMP;
+                }
+                else if (strcmp(optarg, "wav") == 0) {
+                    filetype = TYPE_WAV;
+                }
+                break;
             case 'd':
                 // decode mode
                 mode = 1;
-                text = NULL;
-                if(optarg != NULL) path = optarg;
+                if (optarg != NULL) inpath = optarg;
+                printf("Output file path: %s\n", inpath);
                 break;
             case 'e':
-                mode = 0;
-                if(optarg != NULL) text = optarg;
                 // encode mode, get text.
+                mode = 0;
+                if(optarg != NULL) inpath = optarg;
+                printf("Input file path: %s\n", inpath);
+                break;
+            case 'f':
+                // Get file
+                outpath = optarg;
                 break;
             case ':':
                 printf("Error: option not provided!\n");
-                return 0;
+                printUsage();
+                return -1;
             case '?':
                 printf("Error: invalid argument provided!\n");
-                return 0;
+                printUsage();
+                return -1;
             default:
                 break;
         }
     }
-    WAV_FILE* wavData;
     uint32_t numBytes;
-    if(mode == 1) {
-        printf("Decoding...\n");
-        wavData = readFromFile(path);
-        // read out LSB from each sample
-        numBytes = wavData->DATA.Subchunk2Size;
-        int bitsPerSample = wavData->FMT.BitsPerSample;
-        char curChar = '\0';
-        int charBitIndex = 0;
-        uint8_t currentByte = 0;
-        // read through each byte
-        // if byte is the end of a sample, capture its value, and set that bit of the char
-        // print the char
-        int bytesPerSample = bitsPerSample / 8;
-        int value = 0;
-        for(int i = 0; i < numBytes; i += bytesPerSample) {
-            // wav file is little endian, so read the first byte, then skip n bytes
-            // where n is the bytes per sample, so bitspersample / 8
-            currentByte = wavData->DATA.byteArray[i];
-            value = currentByte & 1; // get LSB of byte
-            curChar |= value << charBitIndex;
-            charBitIndex++;
-            if(charBitIndex == 8) {
-                charBitIndex = 0;
-                if(curChar == '\0') {
-                    break;
-                } else {
-                    printf("%c", curChar);
-                }
-                curChar = '\0';
-            }
-        }
-        printf("\nString printed!\n");
-
-    } else if(text != NULL){
-
-        wavData = (WAV_FILE*)malloc(sizeof(WAV_FILE));
-        numBytes = numSeconds * (numChannels * sampleRate * (bitsPerSample/8));
-        initWavFile(wavData, numBytes, numChannels, sampleRate, bitsPerSample);
-
-        printf("Encoding...\n");
-        double sample = 64.0;
-        double wave1 = 0, wave2 = 0, wave3 = 0;
-        double freq = 1.0;
-        double amplitude = INT16_MAX / 4.0;
-        //writeToWav16(&testFile, numBytes - 1, (int16_t)1);
-        double pitch1 = 261.626;
-        double pitch2 = 120.665;
-        double pitch3 = 329.628;
-        uint32_t numSamples = numSeconds * numChannels * sampleRate;
-        // encode text into each sample
-        // string should be split across samples, so get length of string in bits
-        int stringLength = strlen(text) * 8;
-        int value;
-        for(int i = 0; i < numSamples; i++)
-        {
-
-            double t = (double)(i * (bitsPerSample / 8)) / (double)sampleRate;
-            double angle = (t) * (2.0 * PI);
-            wave1 = sin(angle * (pitch1));
-            wave2 = sin(angle * (pitch2));
-            wave3 = sin(angle *  (pitch3));
-            pitch1 = 36 * sin(angle * pitch3 / 500);
-            pitch2 = 12 * cos(angle * 0.1);
-            pitch3 = 64 * sin(angle * pitch2 / 500);
-            sample = amplitude * (wave1 + wave2 + wave3);
-
-            if(i < stringLength) {
-                // get i'th bit of array
-                value = (text[i/8] >> (i % 8)) & 1;
-                // encode that bit into the sample
-                writeSampleEncoded(wavData, i, sample, value);
-            } else if(i >= stringLength && i < stringLength + 8) {
-                // encode null terminator too
-                writeSampleEncoded(wavData, i, sample, 0);
-            }else {
-                // write rest of file
-                writeSample(wavData, i, sample);
-            }
-        }
-        printf("Saving...\n");
-        FILE* output;
-        output = fopen("test.wav", "w+b");
-        writeToFile(output, wavData);
-
-        fclose(output);
-        freeWAV(wavData);
+    if (outpath == NULL) {
+        printf("No path provided.\n");
+        printUsage();
+        return -1;
     }
 
+    if (filetype == -1) {
+        printf("Invalid file type.\n");
+        printUsage();
+        return -1;
+    }
+    // Decode
+    if(mode == 1) {
+        if (filetype == TYPE_BMP) {
+            //decodeFromFile_BMP(outpath);
+            decode_ToFile_FromFile_BMP(outpath, inpath);
+        }
+        else if (filetype == TYPE_WAV) {
+            //decodeFromFile_WAV(outpath);
+            decode_toFile_FromFile_WAV(outpath, inpath);
+        }
+    } else if(inpath != NULL){
+    // Encode
+        FILE* input_file = fopen(inpath, "rb+");
+
+        if (filetype == TYPE_WAV) {
+            WAV_FILE* wavData = readFromFile_WAV(outpath);
+            printf("|| Encoding...\n");
+            
+            //encodeToFile_WAV(text, wavData);
+            encode_File_ToFile_WAV(input_file, wavData);
+            printf("|| Saving...\n");
+            FILE* output;
+            char buffer[MAX_FILENAME_LENGTH];
+            sprintf_s(buffer, MAX_FILENAME_LENGTH, "encoded_%s", outpath);
+            output = fopen(buffer, "w+b");
+            writeToFile_WAV(output, wavData);
+
+            fclose(output);
+            freeWAV(wavData);
+        }
+        else if (filetype == TYPE_BMP) {
+
+
+            BMP_FILE* bmp = (BMP_FILE*) malloc(sizeof(BMP_FILE));
+            //decodeFromFile_BMP("testbitmap_encoded.bmp");
+            readBMPFromFile(outpath, bmp);
+
+            //encodeToFile_BMP(bmp, text);
+            encode_File_ToFile_BMP(bmp, input_file);
+            char buffer[MAX_FILENAME_LENGTH];
+            sprintf_s(buffer, MAX_FILENAME_LENGTH, "encoded_%s", outpath);
+            printf("|| Writing file to %s\n", buffer);
+            writeBmpToFile(buffer, bmp);
+            freeBMP(bmp);
+        }
+        
+    }
+    
 
     return 0;
 }
